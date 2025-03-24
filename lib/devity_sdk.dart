@@ -1,13 +1,5 @@
+import 'package:devity_sdk/core/enumeration.dart';
 import 'package:flutter/material.dart';
-
-/// The base class for all widget parsers.
-enum DevityAppDataSource {
-  /// The local data source.
-  local,
-
-  /// The remote data source.
-  remote,
-}
 
 /// DevityApp class is the entry point for the Devity SDK.
 class DevityApp extends StatelessWidget {
