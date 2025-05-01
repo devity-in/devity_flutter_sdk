@@ -1,0 +1,20 @@
+{
+  "buildFiles": [
+    "/Users/bw/fvm/versions/stable/packages/flutter_tools/gradle/src/main/groovy/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/bw/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/bw/abhishekthakur/GitHubProjects/devity_flutter_sdk/example/android/app/.cxx/Debug/54x3p6n6/x86",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/bw/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/bw/abhishekthakur/GitHubProjects/devity_flutter_sdk/example/android/app/.cxx/Debug/54x3p6n6/x86",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {}
+}
