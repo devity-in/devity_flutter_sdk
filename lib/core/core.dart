@@ -16,6 +16,7 @@ export 'models/column_renderer_model.dart';
 // Specific Widgets
 export 'models/text_widget_model.dart';
 export 'models/button_widget_model.dart'; // Added Button export
+export 'models/text_field_widget_model.dart'; // Added TextField export
 
 // Specific Actions
 export 'models/set_state_action_model.dart'; // Added SetStateActionModel export

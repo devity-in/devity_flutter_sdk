@@ -11,6 +11,7 @@ import 'package:devity_sdk/state/devity_screen_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:devity_sdk/services/expression_service.dart'; // Import ExpressionService
+import 'package:devity_sdk/core/models/text_field_widget_model.dart'; // Import TextField model
 
 // TODO: Define a state management approach later (Provider, Riverpod, etc.) -> Using Bloc now
 // For now, a simple StatefulWidget to hold the spec and trigger rendering.
@@ -157,7 +158,37 @@ Widget buildWidget(
         },
         child: Text(evaluatedButtonText), // Use evaluated text
       );
-    // TODO: Add cases for 'Image', 'TextField' etc.
+    case TextFieldWidgetModel():
+      // TODO: Handle initial value binding?
+      // final initialValue = ExpressionService.evaluate(model.initialValue, screenState);
+      // Need TextEditingController for initial value and updates
+      // Potential issue: Controller recreated on every build if not managed.
+      // For now, ignore initialValue binding and focus on onChanged.
+      return Padding(
+        // Add padding for visual spacing
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        child: TextField(
+          // controller: // See TODO above
+          decoration: InputDecoration(
+            labelText: model.label, // Use label
+            hintText: model.placeholder, // Use placeholder
+            border: const OutlineInputBorder(), // Basic border
+          ),
+          onChanged: (newValue) {
+            // M4 Commit 5: Trigger actions on value change
+            print(
+                "TextField '${model.id}' changed: $newValue. Actions: ${model.onValueChangedActionIds}");
+            // Pass the new value in the payload
+            actionHandler.executeActions(
+              context,
+              specModel,
+              model.onValueChangedActionIds,
+              eventPayload: {'value': newValue},
+            );
+          },
+        ),
+      );
+    // TODO: Add cases for 'Image'
     default:
       print("Error: Unknown WidgetModel type: ${model.runtimeType}");
       return const SizedBox(

@@ -158,7 +158,9 @@ WidgetModel parseWidget(Map<String, dynamic> json) {
   final style = json['style'] as Map<String, dynamic>?;
   final onClickActionIds =
       (json['onClickActionIds'] as List<dynamic>? ?? []).cast<String>();
-  // final onValueChangedActionIds = (json['onValueChangedActionIds'] as List<dynamic>? ?? []).cast<String>();
+  // Parse onValueChangedActionIds from the top-level widget JSON
+  final onValueChangedActionIds =
+      (json['onValueChangedActionIds'] as List<dynamic>? ?? []).cast<String>();
 
   if (id == null) {
     throw FormatException(
@@ -204,7 +206,23 @@ WidgetModel parseWidget(Map<String, dynamic> json) {
         onClickActionIds: onClickActionIds,
       );
 
-    // TODO: Add cases for 'Image', 'TextField' etc.
+    case 'TextField':
+      // Extract TextField-specific attributes
+      final initialValue = attributes['initialValue'] as String?;
+      final label = attributes['label'] as String?;
+      final placeholder = attributes['placeholder'] as String?;
+
+      return TextFieldWidgetModel(
+        id: id,
+        initialValue: initialValue,
+        label: label,
+        placeholder: placeholder,
+        style: style,
+        onValueChangedActionIds: onValueChangedActionIds,
+        rawAttributes: attributes, // Pass original attributes if needed by base
+      );
+
+    // TODO: Add cases for 'Image'
     default:
       // TODO: Improve logging/error handling
       print("WARN: Unknown widget type: $widgetType. JSON: $json");

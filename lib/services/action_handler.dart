@@ -24,11 +24,11 @@ class ActionHandler {
   ///
   /// Requires the current [BuildContext] to access the [DevityScreenBloc]
   /// and the fully parsed [SpecModel] to look up action definitions.
+  /// Optional [eventPayload] can provide context from the triggering event (e.g., widget value).
   void executeActions(
-    BuildContext context,
-    SpecModel? specModel,
-    List<String>? actionIds,
-  ) {
+      BuildContext context, SpecModel? specModel, List<String>? actionIds,
+      {Map<String, dynamic>? eventPayload} // Add optional payload
+      ) {
     if (actionIds == null ||
         actionIds.isEmpty ||
         specModel == null ||
@@ -50,13 +50,15 @@ class ActionHandler {
         continue; // Skip to the next action
       }
 
-      // Execute the specific action based on its type
-      _executeAction(context, actionModel);
+      // Execute the specific action based on its type, passing payload
+      _executeAction(context, actionModel, eventPayload: eventPayload);
     }
   }
 
   /// Executes a single action based on its model type.
-  void _executeAction(BuildContext context, ActionModel actionModel) {
+  void _executeAction(BuildContext context, ActionModel actionModel,
+      {Map<String, dynamic>? eventPayload} // Add optional payload
+      ) {
     print(
         "ActionHandler: Executing action '${actionModel.id}' of type '${actionModel.actionType}'");
 
