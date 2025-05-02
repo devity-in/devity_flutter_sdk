@@ -60,17 +60,31 @@ class ActionHandler {
       {Map<String, dynamic>? eventPayload} // Add optional payload
       ) {
     print(
-        "ActionHandler: Executing action '${actionModel.id}' of type '${actionModel.actionType}'");
+        "ActionHandler: Executing action '${actionModel.id}' of type '${actionModel.actionType}'" +
+            (eventPayload != null ? " with payload: $eventPayload" : ""));
 
     switch (actionModel) {
       case SetStateActionModel model:
+        // Process updates to substitute payload values if necessary
+        Map<String, dynamic> processedUpdates = {};
+        model.updates.forEach((key, value) {
+          if (value is String && value == '@{event.value}') {
+            // Substitute with payload value if key exists, otherwise use null or empty?
+            // Let's use null if not found, assuming the state can handle it.
+            processedUpdates[key] = eventPayload?['value'];
+            print(
+                "ActionHandler: Substituted @{event.value} for key '$key' with value: ${processedUpdates[key]}");
+          } else {
+            // Keep original value if not a substitution placeholder
+            processedUpdates[key] = value;
+          }
+        });
+
         try {
-          // Get the screen's Bloc instance
           final bloc = context.read<DevityScreenBloc>();
-          // Dispatch the update event
-          bloc.add(DevityScreenUpdateState(updates: model.updates));
+          // Dispatch the update event with processed updates
+          bloc.add(DevityScreenUpdateState(updates: processedUpdates));
         } catch (e) {
-          // Handle cases where Bloc is not found (should not happen if setup correctly)
           print(
               "ActionHandler Error: Could not find DevityScreenBloc for SetState action '${actionModel.id}'. Error: $e");
         }

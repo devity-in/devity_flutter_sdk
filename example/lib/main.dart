@@ -35,6 +35,16 @@ const String sampleSpecJson = '''
             }
           },
           {
+            "id": "nameInput",
+            "type": "Widget",
+            "widgetType": "TextField",
+            "attributes": {
+              "label": "Your Name",
+              "placeholder": "Enter your name"
+            },
+            "onValueChangedActionIds": ["updateUserNameAction"]
+          },
+          {
             "id": "incrementButton",
             "type": "Widget",
             "widgetType": "Button",
@@ -68,7 +78,7 @@ const String sampleSpecJson = '''
             "type": "Widget",
             "widgetType": "Text",
             "attributes": {
-              "text": "This is Screen 2. Counter is @{state.counter}"
+              "text": "This is Screen 2. Name: @{state.userName}, Counter: @{state.counter}"
             }
           },
           {
@@ -76,7 +86,7 @@ const String sampleSpecJson = '''
             "type": "Widget",
             "widgetType": "Button",
             "attributes": {
-              "text": "Show Alert"
+              "text": "Show User Info Alert"
             },
             "onClickActionIds": ["showAlertAction"]
           },
@@ -94,6 +104,16 @@ const String sampleSpecJson = '''
     }
   },
   "actions": {
+    "updateUserNameAction": {
+      "id": "updateUserNameAction",
+      "type": "Action",
+      "actionType": "setState",
+      "attributes": {
+        "updates": {
+          "userName": "@{event.value}"
+        }
+      }
+    },
     "incrementAction": {
       "id": "incrementAction",
       "type": "Action",
@@ -117,7 +137,7 @@ const String sampleSpecJson = '''
       "type": "Action",
       "actionType": "Navigate",
       "attributes": {
-        "screenId": "mainScreen" // Navigate back by ID
+        "screenId": "mainScreen"
       }
     },
     "showAlertAction": {
@@ -125,8 +145,8 @@ const String sampleSpecJson = '''
       "type": "Action",
       "actionType": "ShowAlert",
       "attributes": {
-        "title": "Hello from Devity!",
-        "message": "The counter value is @{state.counter}."
+        "title": "User Info",
+        "message": "Name: @{state.userName}, Counter: @{state.counter}"
       }
     }
   }
