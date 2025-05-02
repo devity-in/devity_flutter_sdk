@@ -10,6 +10,8 @@ import 'package:devity_sdk/core/models/screen_model.dart';
 import 'package:devity_sdk/core/models/spec_model.dart';
 import 'package:devity_sdk/core/models/text_widget_model.dart';
 import 'package:devity_sdk/core/models/widget_model.dart';
+import 'package:devity_sdk/core/models/button_widget_model.dart';
+import 'package:devity_sdk/core/models/set_state_action_model.dart';
 // We will define component parsers here for now, move later
 // import 'package:devity_sdk/parser/layout_parser/layout_parser.dart';
 // import 'package:devity_sdk/parser/widget_parser/widget_parser.dart';
@@ -140,7 +142,6 @@ RendererModel parseRenderer(Map<String, dynamic> json) {
 /// Parses a Widget JSON object into a [WidgetModel].
 WidgetModel parseWidget(Map<String, dynamic> json) {
   final widgetType = json['widgetType'] as String?;
-  // Verify the component type is indeed 'Widget'
   final type = json['type'] as String?;
   if (type != 'Widget') {
     throw FormatException(
@@ -152,15 +153,12 @@ WidgetModel parseWidget(Map<String, dynamic> json) {
 
   final id = json['id'] as String?;
   final attributes = json['attributes'] as Map<String, dynamic>? ?? {};
-  final style =
-      json['style'] as Map<String, dynamic>?; // TODO: Implement Style parsing
+  final style = json['style'] as Map<String, dynamic>?;
   final onClickActionIds =
       (json['onClickActionIds'] as List<dynamic>? ?? []).cast<String>();
-  final onValueChangedActionIds = // Not relevant for Text, but keep for structure
-      (json['onValueChangedActionIds'] as List<dynamic>? ?? []).cast<String>();
+  // final onValueChangedActionIds = (json['onValueChangedActionIds'] as List<dynamic>? ?? []).cast<String>();
 
   if (id == null) {
-    // Decide if all widgets *must* have an ID. For now, enforce it.
     throw FormatException(
         "Widget ID ('id') is required. WidgetType: $widgetType");
   }
@@ -188,7 +186,23 @@ WidgetModel parseWidget(Map<String, dynamic> json) {
         onClickActionIds: onClickActionIds,
         // Text doesn't have onValueChanged, but keep field in base model?
       );
-    // TODO: Add cases for 'Button', 'Image', 'TextField' etc.
+
+    case 'Button':
+      // Extract Button-specific attributes
+      final text = attributes['text'] as String?;
+      if (text == null) {
+        print(
+            "WARN: Button widget '$id' missing 'text' attribute. Defaulting to 'Button'.");
+      }
+
+      return ButtonWidgetModel(
+        id: id,
+        text: text ?? 'Button', // Provide default value
+        style: style,
+        onClickActionIds: onClickActionIds,
+      );
+
+    // TODO: Add cases for 'Image', 'TextField' etc.
     default:
       // TODO: Improve logging/error handling
       print("WARN: Unknown widget type: $widgetType. JSON: $json");
@@ -196,13 +210,32 @@ WidgetModel parseWidget(Map<String, dynamic> json) {
   }
 }
 
-/// Parses an Action JSON object into an [ActionModel]. (Placeholder)
+/// Parses an Action JSON object into an [ActionModel].
 ActionModel parseAction(String id, Map<String, dynamic> json) {
-  // TODO: Implement Action parsing based on 'actionType'
-  print("WARN: Action parsing not implemented for id: $id. JSON: $json");
-  // For now, return a placeholder or throw error if strict parsing needed
-  // return ActionModel(id: id, type: json['actionType'] ?? 'unknown', params: json['params'] ?? {});
-  throw UnimplementedError("Action parsing not implemented yet.");
+  final actionType = json['actionType'] as String?;
+  if (actionType == null) {
+    throw FormatException("Action definition missing 'actionType' for id: $id");
+  }
+
+  final params = json['params'] as Map<String, dynamic>? ?? {};
+
+  switch (actionType) {
+    case 'setState':
+      // 'params' for setState should be the state update map
+      return SetStateActionModel(
+        id: id,
+        updates: params, // Pass the params map as updates
+      );
+
+    // TODO: Add cases for other action types ('navigate', 'apiCall', etc.)
+
+    default:
+      print("WARN: Unknown action type: $actionType for id: $id. JSON: $json");
+      // Return a generic ActionModel or throw? Throwing for now.
+      throw FormatException("Unknown action type: $actionType");
+    // Or return generic:
+    // return ActionModel(id: id, actionType: actionType, params: params);
+  }
 }
 
 // TODO: Implement Rule parsing (similar structure to Action parsing)

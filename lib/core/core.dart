@@ -15,9 +15,10 @@ export 'models/column_renderer_model.dart';
 
 // Specific Widgets
 export 'models/text_widget_model.dart';
-// export 'models/button_widget_model.dart'; // Add as created
+export 'models/button_widget_model.dart'; // Added Button export
 
 // Specific Actions
+export 'models/set_state_action_model.dart'; // Added SetStateActionModel export
 // export 'models/navigate_action_model.dart'; // Add as created
 
 // Enums / Utilities

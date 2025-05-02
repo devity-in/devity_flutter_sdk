@@ -11,6 +11,7 @@ export 'rendering/devity_renderer.dart';
 
 // Export Services
 export 'services/network_service.dart';
+export 'services/action_handler.dart';
 
 // Export Main SDK Widget
 export 'devity_root.dart';
