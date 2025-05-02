@@ -1,36 +1,44 @@
 import 'package:devity_sdk/core/core.dart';
+// Import Bloc and State/Event files
+import 'package:devity_sdk/state/devity_screen_bloc.dart';
+import 'package:devity_sdk/state/devity_screen_event.dart';
+import 'package:devity_sdk/state/devity_screen_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-// TODO: Define a state management approach later (Provider, Riverpod, etc.)
+// TODO: Define a state management approach later (Provider, Riverpod, etc.) -> Using Bloc now
 // For now, a simple StatefulWidget to hold the spec and trigger rendering.
 
 /// The main widget that renders a Devity screen based on a [ScreenModel].
-/// It handles fetching/receiving the screen model and initiating the build process.
-class DevityScreenRenderer extends StatefulWidget {
-  // Initially, we might pass the model directly.
-  // Later, this could take a specId/screenId and handle fetching.
+/// It sets up the [DevityScreenBloc] and initiates the build process.
+class DevityScreenRenderer extends StatelessWidget {
+  // Changed to StatelessWidget
   final ScreenModel screenModel;
 
   const DevityScreenRenderer({super.key, required this.screenModel});
 
   @override
-  State<DevityScreenRenderer> createState() => _DevityScreenRendererState();
-}
-
-class _DevityScreenRendererState extends State<DevityScreenRenderer> {
-  @override
   Widget build(BuildContext context) {
-    // Basic Scaffold wrapper for the screen content
-    // TODO: Add AppBar/BottomNavBar rendering based on ScreenModel properties
-    return Scaffold(
-      backgroundColor: _parseColor(widget.screenModel.backgroundColor),
-      body: buildComponent(context, widget.screenModel.body),
+    // Provide the DevityScreenBloc to the widget subtree
+    return BlocProvider(
+      create: (context) => DevityScreenBloc()
+        // Initialize the Bloc state with persistent data from the screen model
+        ..add(DevityScreenInitialize(initialData: screenModel.persistentData)),
+      child: Scaffold(
+        // TODO: Add AppBar/BottomNavBar rendering based on ScreenModel properties
+        backgroundColor: _parseColor(screenModel.backgroundColor),
+        // Pass the ScreenModel down if needed by buildComponent,
+        // or access data via BlocProvider.of<DevityScreenBloc>(context).state
+        body: buildComponent(context, screenModel.body),
+      ),
     );
   }
 }
 
 /// Recursively builds Flutter widgets from Devity component models.
+/// Widgets needing state should use BlocProvider.of<DevityScreenBloc>(context)
 Widget buildComponent(BuildContext context, ComponentModel model) {
+  // Access state if needed: final screenState = context.watch<DevityScreenBloc>().state;
   if (model is RendererModel) {
     return buildRenderer(context, model);
   } else if (model is WidgetModel) {
