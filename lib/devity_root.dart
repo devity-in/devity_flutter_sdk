@@ -89,7 +89,10 @@ class _DevityRootState extends State<DevityRoot> {
 
       if (entryScreenModel != null) {
         // Render the screen using the DevityScreenRenderer
-        return DevityScreenRenderer(screenModel: entryScreenModel);
+        return DevityScreenRenderer(
+          screenModel: entryScreenModel,
+          specModel: _specModel,
+        );
       } else {
         return const Center(
           child: Text(

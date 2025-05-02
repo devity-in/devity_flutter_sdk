@@ -1,4 +1,9 @@
 import 'package:devity_sdk/core/core.dart';
+// Import Button model
+import 'package:devity_sdk/core/models/button_widget_model.dart';
+// Import Action Handler and SpecModel
+import 'package:devity_sdk/services/action_handler.dart';
+import 'package:devity_sdk/core/models/spec_model.dart';
 // Import Bloc and State/Event files
 import 'package:devity_sdk/state/devity_screen_bloc.dart';
 import 'package:devity_sdk/state/devity_screen_event.dart';
@@ -14,8 +19,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 class DevityScreenRenderer extends StatelessWidget {
   // Changed to StatelessWidget
   final ScreenModel screenModel;
+  final SpecModel? specModel; // Add SpecModel
 
-  const DevityScreenRenderer({super.key, required this.screenModel});
+  const DevityScreenRenderer(
+      {super.key,
+      required this.screenModel,
+      this.specModel}); // Update constructor
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +38,8 @@ class DevityScreenRenderer extends StatelessWidget {
         backgroundColor: _parseColor(screenModel.backgroundColor),
         // Pass the ScreenModel down if needed by buildComponent,
         // or access data via BlocProvider.of<DevityScreenBloc>(context).state
-        body: buildComponent(context, screenModel.body),
+        // Pass specModel down
+        body: buildComponent(context, screenModel.body, specModel),
       ),
     );
   }
@@ -37,12 +47,13 @@ class DevityScreenRenderer extends StatelessWidget {
 
 /// Recursively builds Flutter widgets from Devity component models.
 /// Widgets needing state should use BlocProvider.of<DevityScreenBloc>(context)
-Widget buildComponent(BuildContext context, ComponentModel model) {
+Widget buildComponent(
+    BuildContext context, ComponentModel model, SpecModel? specModel) {
   // Access state if needed: final screenState = context.watch<DevityScreenBloc>().state;
   if (model is RendererModel) {
-    return buildRenderer(context, model);
+    return buildRenderer(context, model, specModel); // Pass specModel
   } else if (model is WidgetModel) {
-    return buildWidget(context, model);
+    return buildWidget(context, model, specModel); // Pass specModel
   } else {
     // Handle unknown component type - return placeholder or throw error
     print("Error: Unknown ComponentModel type: ${model.runtimeType}");
@@ -53,14 +64,16 @@ Widget buildComponent(BuildContext context, ComponentModel model) {
 }
 
 /// Builds Flutter widgets specifically for Devity Renderer models.
-Widget buildRenderer(BuildContext context, RendererModel model) {
+Widget buildRenderer(
+    BuildContext context, RendererModel model, SpecModel? specModel) {
   // TODO: Apply common renderer properties (style, attributes) if needed
 
   switch (model) {
     case ColumnRendererModel():
       // Recursively build children
       final childrenWidgets = model.children
-          .map((child) => buildComponent(context, child))
+          .map((child) =>
+              buildComponent(context, child, specModel)) // Pass specModel
           .toList();
       // TODO: Apply Column-specific attributes (mainAxisAlignment, crossAxisAlignment, etc.)
       return Column(
@@ -79,7 +92,11 @@ Widget buildRenderer(BuildContext context, RendererModel model) {
 }
 
 /// Builds Flutter widgets specifically for Devity Widget models.
-Widget buildWidget(BuildContext context, WidgetModel model) {
+Widget buildWidget(
+    BuildContext context, WidgetModel model, SpecModel? specModel) {
+  // Instantiate ActionHandler here (temporary, improve later)
+  final actionHandler = ActionHandler();
+
   // TODO: Apply common widget properties (style, onClick actions)
 
   switch (model) {
@@ -95,7 +112,22 @@ Widget buildWidget(BuildContext context, WidgetModel model) {
           // TODO: Apply styles from model.style map
         ),
       );
-    // TODO: Add cases for Button, Image, TextField, etc.
+    case ButtonWidgetModel():
+      // TODO: Apply Button-specific styles (button color, text color, etc.)
+      return ElevatedButton(
+        onPressed: () {
+          // M2 Commit 12: Trigger Action Handler
+          print(
+              "Button '${model.id}' pressed. Actions: ${model.onClickActionIds}");
+          actionHandler.executeActions(
+            context,
+            specModel, // Pass the spec model down
+            model.onClickActionIds,
+          );
+        },
+        child: Text(model.text),
+      );
+    // TODO: Add cases for 'Image', 'TextField' etc.
     default:
       print("Error: Unknown WidgetModel type: ${model.runtimeType}");
       return const SizedBox(
