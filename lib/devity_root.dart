@@ -1,4 +1,5 @@
 import 'package:devity_sdk/devity_sdk.dart';
+import 'package:devity_sdk/services/action_handler.dart'; // Import for NavigationHandler
 import 'package:flutter/material.dart';
 
 /// The root widget for rendering a Devity UI specification.
@@ -8,11 +9,13 @@ import 'package:flutter/material.dart';
 class DevityRoot extends StatefulWidget {
   final String specId;
   final String baseUrl; // Base URL of the Devity backend
+  final NavigationHandler? navigationHandler; // Add optional handler
 
   const DevityRoot({
     super.key,
     required this.specId,
     required this.baseUrl,
+    this.navigationHandler, // Add to constructor
   });
 
   @override
@@ -92,6 +95,7 @@ class _DevityRootState extends State<DevityRoot> {
         return DevityScreenRenderer(
           screenModel: entryScreenModel,
           specModel: _specModel,
+          navigationHandler: widget.navigationHandler,
         );
       } else {
         return const Center(

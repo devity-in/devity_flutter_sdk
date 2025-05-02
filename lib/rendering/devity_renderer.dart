@@ -10,6 +10,7 @@ import 'package:devity_sdk/state/devity_screen_event.dart';
 import 'package:devity_sdk/state/devity_screen_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:devity_sdk/services/expression_service.dart'; // Import ExpressionService
 
 // TODO: Define a state management approach later (Provider, Riverpod, etc.) -> Using Bloc now
 // For now, a simple StatefulWidget to hold the spec and trigger rendering.
@@ -19,12 +20,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 class DevityScreenRenderer extends StatelessWidget {
   // Changed to StatelessWidget
   final ScreenModel screenModel;
-  final SpecModel? specModel; // Add SpecModel
+  final SpecModel? specModel;
+  final NavigationHandler? navigationHandler; // Add navigationHandler
 
-  const DevityScreenRenderer(
-      {super.key,
-      required this.screenModel,
-      this.specModel}); // Update constructor
+  const DevityScreenRenderer({
+    super.key,
+    required this.screenModel,
+    this.specModel,
+    this.navigationHandler, // Add to constructor
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -38,8 +42,9 @@ class DevityScreenRenderer extends StatelessWidget {
         backgroundColor: _parseColor(screenModel.backgroundColor),
         // Pass the ScreenModel down if needed by buildComponent,
         // or access data via BlocProvider.of<DevityScreenBloc>(context).state
-        // Pass specModel down
-        body: buildComponent(context, screenModel.body, specModel),
+        // Pass specModel and navigationHandler down
+        body: buildComponent(
+            context, screenModel.body, specModel, navigationHandler),
       ),
     );
   }
@@ -48,12 +53,18 @@ class DevityScreenRenderer extends StatelessWidget {
 /// Recursively builds Flutter widgets from Devity component models.
 /// Widgets needing state should use BlocProvider.of<DevityScreenBloc>(context)
 Widget buildComponent(
-    BuildContext context, ComponentModel model, SpecModel? specModel) {
+  BuildContext context,
+  ComponentModel model,
+  SpecModel? specModel,
+  NavigationHandler? navigationHandler, // Add handler
+) {
   // Access state if needed: final screenState = context.watch<DevityScreenBloc>().state;
   if (model is RendererModel) {
-    return buildRenderer(context, model, specModel); // Pass specModel
+    return buildRenderer(
+        context, model, specModel, navigationHandler); // Pass down
   } else if (model is WidgetModel) {
-    return buildWidget(context, model, specModel); // Pass specModel
+    return buildWidget(
+        context, model, specModel, navigationHandler); // Pass down
   } else {
     // Handle unknown component type - return placeholder or throw error
     print("Error: Unknown ComponentModel type: ${model.runtimeType}");
@@ -65,15 +76,19 @@ Widget buildComponent(
 
 /// Builds Flutter widgets specifically for Devity Renderer models.
 Widget buildRenderer(
-    BuildContext context, RendererModel model, SpecModel? specModel) {
+  BuildContext context,
+  RendererModel model,
+  SpecModel? specModel,
+  NavigationHandler? navigationHandler, // Add handler
+) {
   // TODO: Apply common renderer properties (style, attributes) if needed
 
   switch (model) {
     case ColumnRendererModel():
       // Recursively build children
       final childrenWidgets = model.children
-          .map((child) =>
-              buildComponent(context, child, specModel)) // Pass specModel
+          .map((child) => buildComponent(
+              context, child, specModel, navigationHandler)) // Pass down
           .toList();
       // TODO: Apply Column-specific attributes (mainAxisAlignment, crossAxisAlignment, etc.)
       return Column(
@@ -93,17 +108,28 @@ Widget buildRenderer(
 
 /// Builds Flutter widgets specifically for Devity Widget models.
 Widget buildWidget(
-    BuildContext context, WidgetModel model, SpecModel? specModel) {
-  // Instantiate ActionHandler here (temporary, improve later)
-  final actionHandler = ActionHandler();
+  BuildContext context,
+  WidgetModel model,
+  SpecModel? specModel,
+  NavigationHandler? navigationHandler, // Add handler
+) {
+  // Instantiate ActionHandler here, passing the handler
+  final actionHandler = ActionHandler(navigationHandler: navigationHandler);
+
+  // Get current state from Bloc for potential bindings
+  // Use context.watch for reactivity
+  final screenState = context.watch<DevityScreenBloc>().state.data;
 
   // TODO: Apply common widget properties (style, onClick actions)
 
   switch (model) {
     case TextWidgetModel():
-      // TODO: Implement more robust style/attribute mapping
+      // Evaluate potential binding in text attribute
+      final evaluatedText = ExpressionService.evaluate(model.text, screenState);
+
+      // TODO: Implement more robust style/attribute mapping (evaluate these too?)
       return Text(
-        model.text,
+        evaluatedText, // Use evaluated text
         // Basic style mapping
         style: TextStyle(
           fontSize: model.fontSize,
@@ -113,6 +139,10 @@ Widget buildWidget(
         ),
       );
     case ButtonWidgetModel():
+      // Evaluate potential binding in button text
+      final evaluatedButtonText =
+          ExpressionService.evaluate(model.text, screenState);
+
       // TODO: Apply Button-specific styles (button color, text color, etc.)
       return ElevatedButton(
         onPressed: () {
@@ -125,7 +155,7 @@ Widget buildWidget(
             model.onClickActionIds,
           );
         },
-        child: Text(model.text),
+        child: Text(evaluatedButtonText), // Use evaluated text
       );
     // TODO: Add cases for 'Image', 'TextField' etc.
     default:

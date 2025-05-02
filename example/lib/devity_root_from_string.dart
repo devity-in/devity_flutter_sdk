@@ -4,8 +4,13 @@ import 'package:flutter/material.dart';
 /// A widget similar to DevityRoot, but renders a spec from a hardcoded JSON string.
 class DevityRootFromString extends StatefulWidget {
   final String specJsonString;
+  final NavigationHandler? navigationHandler;
 
-  const DevityRootFromString({super.key, required this.specJsonString});
+  const DevityRootFromString({
+    super.key,
+    required this.specJsonString,
+    this.navigationHandler,
+  });
 
   @override
   State<DevityRootFromString> createState() => _DevityRootFromStringState();
@@ -72,10 +77,11 @@ class _DevityRootFromStringState extends State<DevityRootFromString> {
 
       if (entryScreenModel != null) {
         // Render the screen using the DevityScreenRenderer
-        // Pass the full specModel here
+        // Pass the full specModel and navigation handler here
         return DevityScreenRenderer(
           screenModel: entryScreenModel,
           specModel: _specModel, // Pass the parsed spec model
+          navigationHandler: widget.navigationHandler, // Pass handler
         );
       } else {
         return const Center(

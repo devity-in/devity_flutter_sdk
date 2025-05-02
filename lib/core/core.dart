@@ -19,7 +19,9 @@ export 'models/button_widget_model.dart'; // Added Button export
 
 // Specific Actions
 export 'models/set_state_action_model.dart'; // Added SetStateActionModel export
-// export 'models/navigate_action_model.dart'; // Add as created
+export 'models/navigate_action_model.dart'; // Added NavigateActionModel export
+export 'models/show_alert_action_model.dart'; // Added ShowAlertActionModel export
+// export 'models/api_call_action_model.dart'; // Add as created
 
 // Enums / Utilities
 export './enumeration.dart';

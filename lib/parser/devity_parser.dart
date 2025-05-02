@@ -12,6 +12,8 @@ import 'package:devity_sdk/core/models/text_widget_model.dart';
 import 'package:devity_sdk/core/models/widget_model.dart';
 import 'package:devity_sdk/core/models/button_widget_model.dart';
 import 'package:devity_sdk/core/models/set_state_action_model.dart';
+import 'package:devity_sdk/core/models/navigate_action_model.dart';
+import 'package:devity_sdk/core/models/show_alert_action_model.dart';
 // We will define component parsers here for now, move later
 // import 'package:devity_sdk/parser/layout_parser/layout_parser.dart';
 // import 'package:devity_sdk/parser/widget_parser/widget_parser.dart';
@@ -217,17 +219,47 @@ ActionModel parseAction(String id, Map<String, dynamic> json) {
     throw FormatException("Action definition missing 'actionType' for id: $id");
   }
 
-  final params = json['params'] as Map<String, dynamic>? ?? {};
+  // Changed 'params' to 'attributes' to match model definitions
+  final attributes = json['attributes'] as Map<String, dynamic>? ?? {};
 
   switch (actionType) {
     case 'setState':
-      // 'params' for setState should be the state update map
+      // 'attributes' for setState should contain the 'updates' map
+      final updates = attributes['updates'] as Map<String, dynamic>?;
+      if (updates == null) {
+        throw FormatException(
+            "SetState action '$id' missing 'updates' in attributes.");
+      }
       return SetStateActionModel(
         id: id,
-        updates: params, // Pass the params map as updates
+        updates: updates,
       );
 
-    // TODO: Add cases for other action types ('navigate', 'apiCall', etc.)
+    case 'Navigate':
+      final screenId = attributes['screenId'] as String?;
+      if (screenId == null) {
+        throw FormatException(
+            "Navigate action '$id' missing 'screenId' in attributes.");
+      }
+      return NavigateActionModel(
+        id: id,
+        screenId: screenId,
+      );
+
+    case 'ShowAlert':
+      final title = attributes['title'] as String?;
+      final message = attributes['message'] as String?;
+      if (title == null || message == null) {
+        throw FormatException(
+            "ShowAlert action '$id' missing 'title' or 'message' in attributes.");
+      }
+      return ShowAlertActionModel(
+        id: id,
+        title: title,
+        message: message,
+      );
+
+    // TODO: Add cases for other action types ('apiCall', etc.)
 
     default:
       print("WARN: Unknown action type: $actionType for id: $id. JSON: $json");
