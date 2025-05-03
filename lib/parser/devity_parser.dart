@@ -1,19 +1,11 @@
 import 'dart:convert';
 
 import 'package:devity_sdk/core/core.dart';
-import 'package:devity_sdk/core/models/action_model.dart';
-import 'package:devity_sdk/core/models/column_renderer_model.dart';
-import 'package:devity_sdk/core/models/component_model.dart';
-import 'package:devity_sdk/core/models/renderer_model.dart';
-import 'package:devity_sdk/core/models/rule_model.dart';
-import 'package:devity_sdk/core/models/screen_model.dart';
-import 'package:devity_sdk/core/models/spec_model.dart';
-import 'package:devity_sdk/core/models/text_widget_model.dart';
-import 'package:devity_sdk/core/models/widget_model.dart';
-import 'package:devity_sdk/core/models/button_widget_model.dart';
-import 'package:devity_sdk/core/models/set_state_action_model.dart';
-import 'package:devity_sdk/core/models/navigate_action_model.dart';
-import 'package:devity_sdk/core/models/show_alert_action_model.dart';
+import 'package:devity_sdk/core/models/padding_renderer_model.dart';
+import 'package:devity_sdk/core/models/padding_value.dart';
+import 'package:devity_sdk/core/models/row_renderer_model.dart';
+import 'package:devity_sdk/core/models/scrollable_renderer_model.dart';
+import 'package:devity_sdk/core/models/style_model.dart';
 // We will define component parsers here for now, move later
 // import 'package:devity_sdk/parser/layout_parser/layout_parser.dart';
 // import 'package:devity_sdk/parser/widget_parser/widget_parser.dart';
@@ -21,8 +13,7 @@ import 'package:devity_sdk/core/models/show_alert_action_model.dart';
 /// Parses the complete Spec JSON into a [SpecModel].
 SpecModel parseSpec(String jsonString) {
   // Cast the result of json.decode to the expected type
-  final Map<String, dynamic> jsonMap =
-      json.decode(jsonString) as Map<String, dynamic>;
+  final jsonMap = json.decode(jsonString) as Map<String, dynamic>;
   return parseSpecFromJsonMap(jsonMap);
 }
 
@@ -57,12 +48,15 @@ SpecModel parseSpecFromJsonMap(Map<String, dynamic> json) {
 ScreenModel parseScreen(Map<String, dynamic> json) {
   final bodyJson = json['body'] as Map<String, dynamic>?;
   if (bodyJson == null) {
-    throw FormatException("Screen body is required and must be a Renderer.");
+    throw const FormatException(
+      'Screen body is required and must be a Renderer.',
+    );
   }
   // Ensure the body is actually a renderer type
   if (bodyJson['type'] != 'Renderer') {
     throw FormatException(
-        "Screen body component must have type 'Renderer'. Found: ${bodyJson['type']}");
+      "Screen body component must have type 'Renderer'. Found: ${bodyJson['type']}",
+    );
   }
 
   return ScreenModel(
@@ -82,7 +76,7 @@ ScreenModel parseScreen(Map<String, dynamic> json) {
 ComponentModel parseComponent(Map<String, dynamic> json) {
   final type = json['type'] as String?;
   if (type == null) {
-    throw FormatException("Component 'type' is required.");
+    throw const FormatException("Component 'type' is required.");
   }
 
   switch (type) {
@@ -92,8 +86,8 @@ ComponentModel parseComponent(Map<String, dynamic> json) {
       return parseWidget(json);
     default:
       // TODO: Improve logging/error handling
-      print("ERROR: Unknown component type encountered: $type. JSON: $json");
-      throw FormatException("Unknown component type: $type");
+      print('ERROR: Unknown component type encountered: $type. JSON: $json');
+      throw FormatException('Unknown component type: $type');
   }
 }
 
@@ -104,40 +98,66 @@ RendererModel parseRenderer(Map<String, dynamic> json) {
   final type = json['type'] as String?;
   if (type != 'Renderer') {
     throw FormatException(
-        "Expected component type 'Renderer', but found '$type'.");
+      "Expected component type 'Renderer', but found '$type'.",
+    );
   }
   if (rendererType == null) {
-    throw FormatException("Renderer component missing 'rendererType'.");
+    throw const FormatException("Renderer component missing 'rendererType'.");
   }
 
-  final childrenList = (json['children'] as List<dynamic>? ?? []);
-  final id = json['id'] as String?; // Renderers might not always need an ID
+  final id = json['id'] as String?;
   final attributes = json['attributes'] as Map<String, dynamic>?;
-  // TODO: Define and parse specific attributes for different renderers
-  final style =
-      json['style'] as Map<String, dynamic>?; // TODO: Implement Style parsing
-
-  // Parse children recursively
-  final List<ComponentModel> children = childrenList
+  final styleJson = json['style'] as Map<String, dynamic>?;
+  final styleModel = StyleModel.fromJson(styleJson);
+  final childrenList = json['children'] as List<dynamic>? ?? [];
+  final children = childrenList
       .map((childJson) => parseComponent(childJson as Map<String, dynamic>))
       .toList();
 
   switch (rendererType) {
     case 'Column':
-      // Example: Extract Column-specific attributes if they existed
-      // final mainAxisAlignment = attributes?['mainAxisAlignment'] as String?;
       return ColumnRendererModel(
         id: id,
-        attributes: attributes,
-        style: style,
-        children: children, // Pass the parsed children models
+        attributes: attributes ?? const {},
+        style: styleModel,
+        children: children,
       );
-    // TODO: Add cases for 'Row', 'Stack', 'Scrollable', 'Padding' etc.
+    case 'Row':
+      return RowRendererModel(
+        id: id,
+        attributes: attributes ?? const {},
+        style: styleModel,
+        children: children,
+      );
+    case 'Padding':
+      final paddingValue = PaddingValue.fromJson(attributes?['padding']);
+      if (children.length != 1) {
+        throw FormatException(
+          "Padding renderer ('$id') must have exactly one child.",
+        );
+      }
+      return PaddingRendererModel(
+        id: id,
+        padding: paddingValue,
+        attributes: attributes ?? const {},
+        style: styleModel,
+        child: children.first,
+      );
+    case 'Scrollable':
+      if (children.length != 1) {
+        throw FormatException(
+          "Scrollable renderer ('$id') must have exactly one child.",
+        );
+      }
+      // Use the specific factory that takes parsed attributes
+      return ScrollableRendererModel.fromParsedAttributes(
+        id: id,
+        attributes: attributes ?? const {},
+        style: styleModel,
+        child: children.first,
+      );
     default:
-      // TODO: Improve logging/error handling
-      print("WARN: Unknown renderer type: $rendererType. JSON: $json");
-      // Return a basic fallback or throw error? Throwing for now.
-      throw FormatException("Unknown renderer type: $rendererType");
+      throw FormatException('Unknown renderer type: $rendererType');
   }
 }
 
@@ -147,86 +167,72 @@ WidgetModel parseWidget(Map<String, dynamic> json) {
   final type = json['type'] as String?;
   if (type != 'Widget') {
     throw FormatException(
-        "Expected component type 'Widget', but found '$type'.");
+      "Expected component type 'Widget', but found '$type'.",
+    );
   }
   if (widgetType == null) {
-    throw FormatException("Widget component missing 'widgetType'.");
+    throw const FormatException("Widget component missing 'widgetType'.");
   }
 
   final id = json['id'] as String?;
   final attributes = json['attributes'] as Map<String, dynamic>? ?? {};
-  final style = json['style'] as Map<String, dynamic>?;
+  final styleJson = json['style'] as Map<String, dynamic>?;
+  final styleModel = StyleModel.fromJson(styleJson);
   final onClickActionIds =
       (json['onClickActionIds'] as List<dynamic>? ?? []).cast<String>();
-  // Parse onValueChangedActionIds from the top-level widget JSON
   final onValueChangedActionIds =
       (json['onValueChangedActionIds'] as List<dynamic>? ?? []).cast<String>();
 
   if (id == null) {
     throw FormatException(
-        "Widget ID ('id') is required. WidgetType: $widgetType");
+      "Widget ID ('id') is required. WidgetType: $widgetType",
+    );
   }
 
   switch (widgetType) {
     case 'Text':
-      // Extract Text-specific attributes
       final text = attributes['text'] as String?;
-      if (text == null) {
-        print(
-            "WARN: Text widget '$id' missing 'text' attribute. Defaulting to empty string.");
-      }
       final fontSize = (attributes['fontSize'] as num?)?.toDouble();
-      final fontWeight =
-          attributes['fontWeight'] as String?; // TODO: Map to FontWeight enum?
-      final color = attributes['color'] as String?; // TODO: Map to Color type?
-
+      final fontWeight = attributes['fontWeight'] as String?;
+      final color = attributes['color'] as String?;
       return TextWidgetModel(
         id: id,
-        text: text ?? '', // Provide default value
+        text: text ?? '',
         fontSize: fontSize,
         fontWeight: fontWeight,
         color: color,
-        style: style,
+        style: styleModel,
         onClickActionIds: onClickActionIds,
-        // Text doesn't have onValueChanged, but keep field in base model?
       );
-
     case 'Button':
-      // Extract Button-specific attributes
       final text = attributes['text'] as String?;
-      if (text == null) {
-        print(
-            "WARN: Button widget '$id' missing 'text' attribute. Defaulting to 'Button'.");
-      }
-
+      final enabled = attributes['enabled'] as bool? ?? true;
       return ButtonWidgetModel(
         id: id,
-        text: text ?? 'Button', // Provide default value
-        style: style,
+        text: text ?? 'Button',
+        enabled: enabled,
+        style: styleModel,
         onClickActionIds: onClickActionIds,
       );
-
     case 'TextField':
-      // Extract TextField-specific attributes
       final initialValue = attributes['initialValue'] as String?;
       final label = attributes['label'] as String?;
       final placeholder = attributes['placeholder'] as String?;
-
+      final keyboardType = attributes['keyboardType'] as String?;
+      final obscureText = attributes['obscureText'] as bool? ?? false;
       return TextFieldWidgetModel(
         id: id,
         initialValue: initialValue,
         label: label,
         placeholder: placeholder,
-        style: style,
+        keyboardType: keyboardType,
+        obscureText: obscureText,
+        style: styleModel,
         onValueChangedActionIds: onValueChangedActionIds,
-        rawAttributes: attributes, // Pass original attributes if needed by base
+        rawAttributes: attributes,
       );
-
-    // TODO: Add cases for 'Image'
     default:
-      // TODO: Improve logging/error handling
-      print("WARN: Unknown widget type: $widgetType. JSON: $json");
-      throw FormatException("Unknown widget type: $widgetType");
+      throw FormatException('Unknown widget type: $widgetType');
   }
 }
 
@@ -246,7 +252,8 @@ ActionModel parseAction(String id, Map<String, dynamic> json) {
       final updates = attributes['updates'] as Map<String, dynamic>?;
       if (updates == null) {
         throw FormatException(
-            "SetState action '$id' missing 'updates' in attributes.");
+          "SetState action '$id' missing 'updates' in attributes.",
+        );
       }
       return SetStateActionModel(
         id: id,
@@ -257,7 +264,8 @@ ActionModel parseAction(String id, Map<String, dynamic> json) {
       final screenId = attributes['screenId'] as String?;
       if (screenId == null) {
         throw FormatException(
-            "Navigate action '$id' missing 'screenId' in attributes.");
+          "Navigate action '$id' missing 'screenId' in attributes.",
+        );
       }
       return NavigateActionModel(
         id: id,
@@ -269,7 +277,8 @@ ActionModel parseAction(String id, Map<String, dynamic> json) {
       final message = attributes['message'] as String?;
       if (title == null || message == null) {
         throw FormatException(
-            "ShowAlert action '$id' missing 'title' or 'message' in attributes.");
+          "ShowAlert action '$id' missing 'title' or 'message' in attributes.",
+        );
       }
       return ShowAlertActionModel(
         id: id,
@@ -280,9 +289,9 @@ ActionModel parseAction(String id, Map<String, dynamic> json) {
     // TODO: Add cases for other action types ('apiCall', etc.)
 
     default:
-      print("WARN: Unknown action type: $actionType for id: $id. JSON: $json");
+      print('WARN: Unknown action type: $actionType for id: $id. JSON: $json');
       // Return a generic ActionModel or throw? Throwing for now.
-      throw FormatException("Unknown action type: $actionType");
+      throw FormatException('Unknown action type: $actionType');
     // Or return generic:
     // return ActionModel(id: id, actionType: actionType, params: params);
   }

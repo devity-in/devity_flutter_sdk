@@ -2,23 +2,25 @@ import 'package:devity_sdk/core/models/widget_model.dart';
 
 /// Model representing a basic Button widget.
 class ButtonWidgetModel extends WidgetModel {
-  final String text;
   // TODO: Add button-specific style properties (e.g., buttonColor, textColor)?
 
   ButtonWidgetModel({
-    required String id,
+    required super.id,
     required this.text,
-    Map<String, dynamic>? style,
-    List<String>? onClickActionIds,
+    this.enabled = true,
+    super.style,
+    super.onClickActionIds,
     // No onValueChanged for basic button
   }) : super(
-          id: id,
           widgetType: 'Button',
-          attributes: {'text': text},
-          style: style,
-          onClickActionIds: onClickActionIds,
+          attributes: {
+            'text': text,
+            'enabled': enabled,
+          },
           onValueChangedActionIds: null,
         );
+  final String text;
+  final bool enabled;
 
   // If needed later for specific parsing/serialization:
   /*
@@ -28,7 +30,7 @@ class ButtonWidgetModel extends WidgetModel {
     final attributes = json['attributes'] as Map<String, dynamic>? ?? {};
     return ButtonWidgetModel(
       id: json['id'] as String,
-      text: attributes['text'] as String? ?? 'Button', 
+      text: attributes['text'] as String? ?? 'Button',
       style: json['style'] as Map<String, dynamic>?,
       onClickActionIds: (json['onClickActionIds'] as List<dynamic>? ?? []).cast<String>(),
     );

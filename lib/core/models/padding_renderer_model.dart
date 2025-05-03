@@ -10,13 +10,11 @@ class PaddingRendererModel extends RendererModel {
     required this.padding,
     required ComponentModel child,
     super.id,
-    Map<String, dynamic> super.attributes =
-        const {}, // Keep original attributes if needed
-    // StyleModel? style, // Removed for now
+    super.attributes, // Keep original attributes if needed
+    super.style, // Added style
   }) : super(
           rendererType: 'Padding',
-          children: [child], // Padding renderer has exactly one child
-          // style: style, // Removed for now
+          children: [child], // Pass style
         ) {
     assert(children.length == 1,
         'PaddingRendererModel must have exactly one child.');

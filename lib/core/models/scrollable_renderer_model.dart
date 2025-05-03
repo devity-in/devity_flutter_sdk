@@ -1,5 +1,6 @@
 import 'package:devity_sdk/core/models/component_model.dart';
 import 'package:devity_sdk/core/models/renderer_model.dart';
+import 'package:devity_sdk/core/models/style_model.dart';
 import 'package:flutter/material.dart'; // For Axis
 
 /// Represents a 'Scrollable' renderer in the Devity spec.
@@ -10,13 +11,11 @@ class ScrollableRendererModel extends RendererModel {
     required ComponentModel child,
     super.id,
     this.scrollDirection = Axis.vertical, // Default to vertical
-    Map<String, dynamic> super.attributes =
-        const {}, // Store original attributes
-    // StyleModel? style, // Removed for now
+    super.attributes, // Store original attributes
+    super.style, // Added style
   }) : super(
           rendererType: 'Scrollable',
-          children: [child],
-          // style: style, // Removed for now
+          children: [child], // Pass style
         ) {
     assert(children.length == 1,
         'ScrollableRendererModel must have exactly one child.');
@@ -29,7 +28,7 @@ class ScrollableRendererModel extends RendererModel {
     required ComponentModel child,
     required Map<String, dynamic> attributes,
     String? id,
-    // StyleModel? style,
+    StyleModel? style, // Added style
   }) {
     final directionString = attributes['scrollDirection'] as String?;
     final direction = (directionString?.toLowerCase() == 'horizontal')
@@ -41,7 +40,7 @@ class ScrollableRendererModel extends RendererModel {
       child: child,
       scrollDirection: direction,
       attributes: attributes, // Keep original attributes
-      // style: style,
+      style: style, // Pass style
     );
   }
   final Axis scrollDirection;

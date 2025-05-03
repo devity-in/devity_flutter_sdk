@@ -6,12 +6,11 @@ class RowRendererModel extends RendererModel {
 
   RowRendererModel({
     super.id,
-    Map<String, dynamic> super.attributes = const {},
-    super.children = const [],
-    // StyleModel? style, // Removed for now
+    super.attributes,
+    super.children,
+    super.style,
   }) : super(
           rendererType: 'Row',
-          // style: style, // Removed for now
         );
 
   // Parsing is handled externally, likely in DevityParser or DevityRenderer

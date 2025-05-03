@@ -2,6 +2,7 @@ import 'package:devity_sdk/core/core.dart';
 import 'package:devity_sdk/core/models/padding_renderer_model.dart'; // Import Padding model
 import 'package:devity_sdk/core/models/row_renderer_model.dart'; // Import Row model
 import 'package:devity_sdk/core/models/scrollable_renderer_model.dart'; // Import Scrollable model
+import 'package:devity_sdk/core/models/style_model.dart'; // Import Style model
 // Import Action Handler and SpecModel
 import 'package:devity_sdk/services/action_handler.dart';
 import 'package:devity_sdk/services/expression_service.dart'; // Import ExpressionService
@@ -96,7 +97,7 @@ Widget buildRenderer(
   SpecModel? specModel,
   NavigationHandler? navigationHandler, // Add handler
 ) {
-  // TODO: Apply common renderer properties (style, attributes) if needed
+  Widget builtRenderer;
 
   switch (model) {
     case ColumnRendererModel():
@@ -112,10 +113,11 @@ Widget buildRenderer(
           ) // Pass down
           .toList();
       // TODO: Apply Column-specific attributes (mainAxisAlignment, crossAxisAlignment, etc.)
-      return Column(
+      builtRenderer = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: childrenWidgets,
       );
+// Added break
     // Add case for RowRendererModel
     case RowRendererModel():
       // Recursively build children
@@ -130,9 +132,10 @@ Widget buildRenderer(
           ) // Pass down
           .toList();
       // TODO: Apply Row-specific attributes (mainAxisAlignment, crossAxisAlignment, etc.) from model.attributes
-      return Row(
+      builtRenderer = Row(
         children: childrenWidgets,
       );
+// Added break
     // Add case for PaddingRendererModel
     case PaddingRendererModel():
       // Padding model ensures it has exactly one child
@@ -143,10 +146,16 @@ Widget buildRenderer(
         navigationHandler,
       );
       // Apply padding using the parsed PaddingValue
-      return Padding(
+      // NOTE: Style padding is handled by _applyStyles below.
+      // The Padding specified by PaddingRendererModel takes precedence as it's more specific.
+      builtRenderer = Padding(
         padding: model.padding.edgeInsets,
         child: childWidget,
       );
+      // We do NOT apply style padding here again, _applyStyles handles background etc.
+      // but the Padding widget itself doesn't take style.
+      return _applyStyles(
+          builtRenderer, model.style); // Apply other styles like background
     // Add case for ScrollableRendererModel
     case ScrollableRendererModel():
       // Scrollable model ensures it has exactly one child
@@ -157,20 +166,25 @@ Widget buildRenderer(
         navigationHandler,
       );
       // Wrap the child in a SingleChildScrollView
-      return SingleChildScrollView(
+      builtRenderer = SingleChildScrollView(
         scrollDirection: model.scrollDirection, // Use direction from model
         child: childWidget,
       );
+// Added break
     // TODO: Add cases for Stack, etc.
     default:
       print('Error: Unknown RendererModel type: ${model.runtimeType}');
-      return const SizedBox(
+      builtRenderer = const SizedBox(
         child: Text(
           'Error: Unknown Renderer',
           style: TextStyle(color: Colors.red),
         ),
       );
+// Added break
   }
+
+  // Apply common styles (padding, background) to the built renderer
+  return _applyStyles(builtRenderer, model.style);
 }
 
 /// Builds Flutter widgets specifically for Devity Widget models.
@@ -187,66 +201,71 @@ Widget buildWidget(
   // Use context.watch for reactivity
   final screenState = context.watch<DevityScreenBloc>().state.data;
 
-  // TODO: Apply common widget properties (style, onClick actions)
+  Widget builtWidget;
 
   switch (model) {
     case TextWidgetModel():
       // Evaluate potential binding in text attribute
       final evaluatedText = ExpressionService.evaluate(model.text, screenState);
 
+      // Determine color: Style > Attribute > Default
+      final textColor = model.style?.textColor ?? _parseColor(model.color);
+
       // TODO: Implement more robust style/attribute mapping (evaluate these too?)
-      return Text(
+      builtWidget = Text(
         evaluatedText, // Use evaluated text
         // Basic style mapping
         style: TextStyle(
           fontSize: model.fontSize,
           fontWeight: _parseFontWeight(model.fontWeight),
-          color: _parseColor(model.color),
-          // TODO: Apply styles from model.style map
+          color: textColor, // Use prioritized color
+          // TODO: Apply other styles from model.style map (fontFamily etc.)
         ),
       );
+// Added break
     case ButtonWidgetModel():
       // Evaluate potential binding in button text
       final evaluatedButtonText =
           ExpressionService.evaluate(model.text, screenState);
 
-      // TODO: Apply Button-specific styles (button color, text color, etc.)
-      return ElevatedButton(
-        onPressed: () {
-          // M2 Commit 12: Trigger Action Handler
-          print(
-            "Button '${model.id}' pressed. Actions: ${model.onClickActionIds}",
-          );
-          actionHandler.executeActions(
-            context,
-            specModel, // Pass the spec model down
-            model.onClickActionIds,
-          );
-        },
+      // Handle enabled state for onPressed
+      final onPressedCallback = model.enabled
+          ? () {
+              print(
+                "Button '${model.id}' pressed. Actions: ${model.onClickActionIds}",
+              );
+              actionHandler.executeActions(
+                context,
+                specModel, // Pass the spec model down
+                model.onClickActionIds,
+              );
+            }
+          : null; // Set to null if button is not enabled
+
+      // TODO: Apply Button-specific styles (button color, text color, etc.) from style
+      builtWidget = ElevatedButton(
+        onPressed: onPressedCallback,
         child: Text(evaluatedButtonText), // Use evaluated text
       );
+// Added break
     case TextFieldWidgetModel():
       // TODO: Handle initial value binding?
-      // final initialValue = ExpressionService.evaluate(model.initialValue, screenState);
-      // Need TextEditingController for initial value and updates
-      // Potential issue: Controller recreated on every build if not managed.
-      // For now, ignore initialValue binding and focus on onChanged.
-      return Padding(
-        // Add padding for visual spacing
+      // TODO: Apply style props (background, text color/style etc.)
+      builtWidget = Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: TextField(
-          // controller: // See TODO above
           decoration: InputDecoration(
             labelText: model.label, // Use label
             hintText: model.placeholder, // Use placeholder
             border: const OutlineInputBorder(), // Basic border
           ),
+          keyboardType:
+              _parseTextInputType(model.keyboardType), // Parse keyboard type
+          obscureText: model.obscureText,
           onChanged: (newValue) {
-            // M4 Commit 5: Trigger actions on value change
             print(
               "TextField '${model.id}' changed: $newValue. Actions: ${model.onValueChangedActionIds}",
             );
-            // Pass the new value in the payload
             actionHandler.executeActions(
               context,
               specModel,
@@ -256,16 +275,50 @@ Widget buildWidget(
           },
         ),
       );
+// Added break
     // TODO: Add cases for 'Image'
     default:
       print('Error: Unknown WidgetModel type: ${model.runtimeType}');
-      return const SizedBox(
+      builtWidget = const SizedBox(
         child: Text(
           'Error: Unknown Widget',
           style: TextStyle(color: Colors.red),
         ),
       );
+// Added break
   }
+
+  // Apply common styles (padding, background) to the built widget
+  return _applyStyles(builtWidget, model.style);
+}
+
+/// Helper function to wrap a widget with common style properties (Padding, BackgroundColor).
+Widget _applyStyles(Widget child, StyleModel? style) {
+  if (style == null) {
+    return child; // No styles to apply
+  }
+
+  var styledChild = child;
+
+  // Apply Padding from style, if specified
+  if (style.padding != null) {
+    // Note: This padding might wrap a PaddingRendererModel, applying padding twice.
+    // Consider adding logic here or in the PaddingRendererModel case to prevent double padding.
+    styledChild = Padding(
+      padding: style.padding!.edgeInsets,
+      child: styledChild,
+    );
+  }
+
+  // Apply BackgroundColor from style, if specified
+  if (style.backgroundColor != null) {
+    styledChild = Container(
+      color: style.backgroundColor,
+      child: styledChild,
+    );
+  }
+
+  return styledChild;
 }
 
 // --- Helper Functions ---
@@ -299,5 +352,23 @@ FontWeight? _parseFontWeight(String? weight) {
   }
 }
 
-// TODO: Add helper for Style map parsing
+/// Basic TextInputType parser
+TextInputType? _parseTextInputType(String? type) {
+  switch (type?.toLowerCase()) {
+    case 'text':
+      return TextInputType.text;
+    case 'number':
+      return TextInputType.number;
+    case 'email':
+      return TextInputType.emailAddress;
+    case 'phone':
+      return TextInputType.phone;
+    case 'url':
+      return TextInputType.url;
+    // Add others as needed (datetime, multiline, etc.)
+    default:
+      return null; // Default
+  }
+}
+
 // TODO: Add helper for Action execution binding

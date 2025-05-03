@@ -1,6 +1,6 @@
-import './component_model.dart';
-import './renderer_model.dart';
+import 'package:devity_sdk/core/models/renderer_model.dart';
 
+/// Represents a 'Column' layout renderer in the Devity spec.
 class ColumnRendererModel extends RendererModel {
   // Add specific attributes for Column later if needed
   // e.g., final String? mainAxisAlignment;
@@ -8,15 +8,13 @@ class ColumnRendererModel extends RendererModel {
   // e.g., final double? spacing;
 
   ColumnRendererModel({
-    String? id,
-    Map<String, dynamic>? attributes,
-    Map<String, dynamic>? style,
-    required List<ComponentModel> children,
+    super.id,
+    super.attributes,
+    super.children,
+    super.style,
   }) : super(
-          id: id,
           rendererType: 'Column',
-          attributes: attributes,
-          style: style,
-          children: children,
         );
+
+  // Parsing is handled externally
 }
