@@ -1,17 +1,15 @@
 import 'package:devity_sdk/core/core.dart';
-// Import Button model
-import 'package:devity_sdk/core/models/button_widget_model.dart';
+import 'package:devity_sdk/core/models/padding_renderer_model.dart'; // Import Padding model
+import 'package:devity_sdk/core/models/row_renderer_model.dart'; // Import Row model
+import 'package:devity_sdk/core/models/scrollable_renderer_model.dart'; // Import Scrollable model
 // Import Action Handler and SpecModel
 import 'package:devity_sdk/services/action_handler.dart';
-import 'package:devity_sdk/core/models/spec_model.dart';
+import 'package:devity_sdk/services/expression_service.dart'; // Import ExpressionService
 // Import Bloc and State/Event files
 import 'package:devity_sdk/state/devity_screen_bloc.dart';
 import 'package:devity_sdk/state/devity_screen_event.dart';
-import 'package:devity_sdk/state/devity_screen_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:devity_sdk/services/expression_service.dart'; // Import ExpressionService
-import 'package:devity_sdk/core/models/text_field_widget_model.dart'; // Import TextField model
 
 // TODO: Define a state management approach later (Provider, Riverpod, etc.) -> Using Bloc now
 // For now, a simple StatefulWidget to hold the spec and trigger rendering.
@@ -19,17 +17,18 @@ import 'package:devity_sdk/core/models/text_field_widget_model.dart'; // Import 
 /// The main widget that renders a Devity screen based on a [ScreenModel].
 /// It sets up the [DevityScreenBloc] and initiates the build process.
 class DevityScreenRenderer extends StatelessWidget {
-  // Changed to StatelessWidget
-  final ScreenModel screenModel;
-  final SpecModel? specModel;
-  final NavigationHandler? navigationHandler; // Add navigationHandler
+  // Add navigationHandler
 
   const DevityScreenRenderer({
-    super.key,
     required this.screenModel,
+    super.key,
     this.specModel,
     this.navigationHandler, // Add to constructor
   });
+  // Changed to StatelessWidget
+  final ScreenModel screenModel;
+  final SpecModel? specModel;
+  final NavigationHandler? navigationHandler;
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +44,11 @@ class DevityScreenRenderer extends StatelessWidget {
         // or access data via BlocProvider.of<DevityScreenBloc>(context).state
         // Pass specModel and navigationHandler down
         body: buildComponent(
-            context, screenModel.body, specModel, navigationHandler),
+          context,
+          screenModel.body,
+          specModel,
+          navigationHandler,
+        ),
       ),
     );
   }
@@ -62,16 +65,27 @@ Widget buildComponent(
   // Access state if needed: final screenState = context.watch<DevityScreenBloc>().state;
   if (model is RendererModel) {
     return buildRenderer(
-        context, model, specModel, navigationHandler); // Pass down
+      context,
+      model,
+      specModel,
+      navigationHandler,
+    ); // Pass down
   } else if (model is WidgetModel) {
     return buildWidget(
-        context, model, specModel, navigationHandler); // Pass down
+      context,
+      model,
+      specModel,
+      navigationHandler,
+    ); // Pass down
   } else {
     // Handle unknown component type - return placeholder or throw error
-    print("Error: Unknown ComponentModel type: ${model.runtimeType}");
+    print('Error: Unknown ComponentModel type: ${model.runtimeType}');
     return const SizedBox(
-        child: Text("Error: Unknown Component",
-            style: TextStyle(color: Colors.red)));
+      child: Text(
+        'Error: Unknown Component',
+        style: TextStyle(color: Colors.red),
+      ),
+    );
   }
 }
 
@@ -88,22 +102,74 @@ Widget buildRenderer(
     case ColumnRendererModel():
       // Recursively build children
       final childrenWidgets = model.children
-          .map((child) => buildComponent(
-              context, child, specModel, navigationHandler)) // Pass down
+          .map(
+            (child) => buildComponent(
+              context,
+              child,
+              specModel,
+              navigationHandler,
+            ),
+          ) // Pass down
           .toList();
       // TODO: Apply Column-specific attributes (mainAxisAlignment, crossAxisAlignment, etc.)
       return Column(
-        // Default alignment for now
-        mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: childrenWidgets,
       );
-    // TODO: Add cases for Row, Stack, etc.
+    // Add case for RowRendererModel
+    case RowRendererModel():
+      // Recursively build children
+      final childrenWidgets = model.children
+          .map(
+            (child) => buildComponent(
+              context,
+              child,
+              specModel,
+              navigationHandler,
+            ),
+          ) // Pass down
+          .toList();
+      // TODO: Apply Row-specific attributes (mainAxisAlignment, crossAxisAlignment, etc.) from model.attributes
+      return Row(
+        children: childrenWidgets,
+      );
+    // Add case for PaddingRendererModel
+    case PaddingRendererModel():
+      // Padding model ensures it has exactly one child
+      final childWidget = buildComponent(
+        context,
+        model.child, // Use the single child
+        specModel,
+        navigationHandler,
+      );
+      // Apply padding using the parsed PaddingValue
+      return Padding(
+        padding: model.padding.edgeInsets,
+        child: childWidget,
+      );
+    // Add case for ScrollableRendererModel
+    case ScrollableRendererModel():
+      // Scrollable model ensures it has exactly one child
+      final childWidget = buildComponent(
+        context,
+        model.child, // Use the single child
+        specModel,
+        navigationHandler,
+      );
+      // Wrap the child in a SingleChildScrollView
+      return SingleChildScrollView(
+        scrollDirection: model.scrollDirection, // Use direction from model
+        child: childWidget,
+      );
+    // TODO: Add cases for Stack, etc.
     default:
-      print("Error: Unknown RendererModel type: ${model.runtimeType}");
+      print('Error: Unknown RendererModel type: ${model.runtimeType}');
       return const SizedBox(
-          child: Text("Error: Unknown Renderer",
-              style: TextStyle(color: Colors.red)));
+        child: Text(
+          'Error: Unknown Renderer',
+          style: TextStyle(color: Colors.red),
+        ),
+      );
   }
 }
 
@@ -149,7 +215,8 @@ Widget buildWidget(
         onPressed: () {
           // M2 Commit 12: Trigger Action Handler
           print(
-              "Button '${model.id}' pressed. Actions: ${model.onClickActionIds}");
+            "Button '${model.id}' pressed. Actions: ${model.onClickActionIds}",
+          );
           actionHandler.executeActions(
             context,
             specModel, // Pass the spec model down
@@ -166,7 +233,7 @@ Widget buildWidget(
       // For now, ignore initialValue binding and focus on onChanged.
       return Padding(
         // Add padding for visual spacing
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: TextField(
           // controller: // See TODO above
           decoration: InputDecoration(
@@ -177,7 +244,8 @@ Widget buildWidget(
           onChanged: (newValue) {
             // M4 Commit 5: Trigger actions on value change
             print(
-                "TextField '${model.id}' changed: $newValue. Actions: ${model.onValueChangedActionIds}");
+              "TextField '${model.id}' changed: $newValue. Actions: ${model.onValueChangedActionIds}",
+            );
             // Pass the new value in the payload
             actionHandler.executeActions(
               context,
@@ -190,10 +258,13 @@ Widget buildWidget(
       );
     // TODO: Add cases for 'Image'
     default:
-      print("Error: Unknown WidgetModel type: ${model.runtimeType}");
+      print('Error: Unknown WidgetModel type: ${model.runtimeType}');
       return const SizedBox(
-          child: Text("Error: Unknown Widget",
-              style: TextStyle(color: Colors.red)));
+        child: Text(
+          'Error: Unknown Widget',
+          style: TextStyle(color: Colors.red),
+        ),
+      );
   }
 }
 
