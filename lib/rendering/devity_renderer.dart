@@ -1,12 +1,18 @@
-import 'package:devity_sdk/core/core.dart';
-import 'package:devity_sdk/core/models/padding_renderer_model.dart'; // Import Padding model
-import 'package:devity_sdk/core/models/row_renderer_model.dart'; // Import Row model
-import 'package:devity_sdk/core/models/scrollable_renderer_model.dart'; // Import Scrollable model
-import 'package:devity_sdk/core/models/style_model.dart'; // Import Style model
-// Import Action Handler and SpecModel
-import 'package:devity_sdk/services/action_handler.dart';
-import 'package:devity_sdk/services/expression_service.dart'; // Import ExpressionService
-// Import Bloc and State/Event files
+import 'package:devity_sdk/core/models/button_widget_model.dart';
+import 'package:devity_sdk/core/models/column_renderer_model.dart';
+import 'package:devity_sdk/core/models/image_widget_model.dart';
+import 'package:devity_sdk/core/models/padding_renderer_model.dart';
+import 'package:devity_sdk/core/models/renderer_model.dart';
+import 'package:devity_sdk/core/models/row_renderer_model.dart';
+import 'package:devity_sdk/core/models/screen_model.dart';
+import 'package:devity_sdk/core/models/scrollable_renderer_model.dart';
+import 'package:devity_sdk/core/models/style_model.dart';
+import 'package:devity_sdk/core/models/text_field_widget_model.dart';
+import 'package:devity_sdk/core/models/text_widget_model.dart';
+import 'package:devity_sdk/core/models/widget_model.dart';
+import 'package:devity_sdk/models/spec_model.dart'; // Provides DevitySpec
+import 'package:devity_sdk/providers/action_service_provider.dart';
+import 'package:devity_sdk/services/expression_service.dart';
 import 'package:devity_sdk/state/devity_screen_bloc.dart';
 import 'package:devity_sdk/state/devity_screen_event.dart';
 import 'package:flutter/material.dart';
@@ -17,39 +23,86 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// The main widget that renders a Devity screen based on a [ScreenModel].
 /// It sets up the [DevityScreenBloc] and initiates the build process.
-class DevityScreenRenderer extends StatelessWidget {
-  // Add navigationHandler
-
+class DevityScreenRenderer extends StatefulWidget {
   const DevityScreenRenderer({
-    required this.screenModel,
+    required this.screenModel, // Expects new ScreenModel from models/spec_model.dart
     super.key,
-    this.specModel,
-    this.navigationHandler, // Add to constructor
+    this.specModel, // Expects DevitySpec from models/spec_model.dart
+    this.onElementTap, // Callback for when an element is tapped in the preview
+    this.selectedElementId, // ID of the currently selected element for highlighting
   });
-  // Changed to StatelessWidget
-  final ScreenModel screenModel;
-  final SpecModel? specModel;
-  final NavigationHandler? navigationHandler;
+  final ScreenModel
+      screenModel; // Uses new ScreenModel from models/spec_model.dart
+  final DevitySpec? specModel;
+  final void Function(String? elementId)? onElementTap;
+  final String? selectedElementId;
+
+  @override
+  State<DevityScreenRenderer> createState() => _DevityScreenRendererState();
+}
+
+class _DevityScreenRendererState extends State<DevityScreenRenderer> {
+  @override
+  void initState() {
+    super.initState();
+    final actionService = ActionServiceProvider.of(context);
+    if (actionService != null &&
+        widget.screenModel.onLoadActions?.isNotEmpty == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          actionService.executeActionsByIds(
+            widget.screenModel.onLoadActions!,
+            context,
+          );
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Provide the DevityScreenBloc to the widget subtree
+    // If onElementTap is provided, assume we are in an editor context
+    // and taps should primarily trigger selection.
+    // If not, normal interaction (like button presses) should work as usual.
+    // Highlighting is controlled by selectedElementId.
+
+    var bodyContent = widget.screenModel.body != null
+        ? buildComponent(
+            context,
+            widget.screenModel.body,
+            widget.specModel,
+            widget.onElementTap, // Pass down for selection
+            widget.selectedElementId, // Pass down for highlighting
+          )
+        : const Center(
+            child: Text(
+              'Screen body is not defined',
+              style: TextStyle(color: Colors.orange),
+            ),
+          );
+
+    // If onElementTap is defined (editor mode), wrap the entire screen body
+    // with a GestureDetector to allow de-selecting by tapping the background.
+    if (widget.onElementTap != null) {
+      bodyContent = GestureDetector(
+        onTap: () {
+          widget.onElementTap!(null); // Tap on background clears selection
+        },
+        behavior: HitTestBehavior.translucent,
+        child: bodyContent, // Ensure it catches taps on empty areas
+      );
+    }
+
     return BlocProvider(
       create: (context) => DevityScreenBloc()
-        // Initialize the Bloc state with persistent data from the screen model
-        ..add(DevityScreenInitialize(initialData: screenModel.persistentData)),
-      child: Scaffold(
-        // TODO: Add AppBar/BottomNavBar rendering based on ScreenModel properties
-        backgroundColor: _parseColor(screenModel.backgroundColor),
-        // Pass the ScreenModel down if needed by buildComponent,
-        // or access data via BlocProvider.of<DevityScreenBloc>(context).state
-        // Pass specModel and navigationHandler down
-        body: buildComponent(
-          context,
-          screenModel.body,
-          specModel,
-          navigationHandler,
+        ..add(
+          DevityScreenInitialize(
+            initialData: widget.screenModel.persistentData,
+          ),
         ),
+      child: Scaffold(
+        backgroundColor: _parseColor(widget.screenModel.backgroundColor),
+        body: bodyContent,
       ),
     );
   }
@@ -59,237 +112,267 @@ class DevityScreenRenderer extends StatelessWidget {
 /// Widgets needing state should use BlocProvider.of<DevityScreenBloc>(context)
 Widget buildComponent(
   BuildContext context,
-  ComponentModel model,
-  SpecModel? specModel,
-  NavigationHandler? navigationHandler, // Add handler
+  dynamic
+      model, // Changed ComponentModel to dynamic for now to handle core types
+  DevitySpec? specModel,
+  void Function(String? elementId)? onElementTap,
+  String? selectedElementId,
 ) {
-  // Access state if needed: final screenState = context.watch<DevityScreenBloc>().state;
+  Widget builtContent;
+  String? currentElementId;
+
   if (model is RendererModel) {
-    return buildRenderer(
+    currentElementId = model.id;
+    builtContent = buildRenderer(
       context,
       model,
       specModel,
-      navigationHandler,
-    ); // Pass down
+      onElementTap,
+      selectedElementId,
+    );
   } else if (model is WidgetModel) {
-    return buildWidget(
+    currentElementId = model.id;
+    builtContent = buildWidget(
       context,
       model,
       specModel,
-      navigationHandler,
-    ); // Pass down
+      onElementTap,
+      selectedElementId,
+    );
+  } else if (model is Map<String, dynamic> &&
+      model.containsKey('message') &&
+      model['message'] == 'dummy') {
+    // Dummy components usually don't have IDs or selection
+    return Text("Dummy Component: ${model['id']} - ${model['type']}");
   } else {
-    // Handle unknown component type - return placeholder or throw error
-    print('Error: Unknown ComponentModel type: ${model.runtimeType}');
+    print(
+      'Error: Unknown or unhandled model type in buildComponent: ${model.runtimeType}',
+    );
     return const SizedBox(
       child: Text(
-        'Error: Unknown Component',
-        style: TextStyle(color: Colors.red),
+        'Error: Unknown Component Type',
+        style: TextStyle(
+          color: Colors.red,
+        ),
       ),
     );
   }
+
+  // Apply highlight and tap if onElementTap is provided (editor mode)
+  // Components might not have an ID (e.g. a generic Renderer without one specified in spec)
+  // Only make selectable if it has an ID.
+  if (currentElementId != null && onElementTap != null) {
+    return _applySelectionHighlight(
+        builtContent, currentElementId, selectedElementId, onElementTap);
+  }
+  return builtContent;
 }
 
 /// Builds Flutter widgets specifically for Devity Renderer models.
 Widget buildRenderer(
   BuildContext context,
-  RendererModel model,
-  SpecModel? specModel,
-  NavigationHandler? navigationHandler, // Add handler
+  RendererModel
+      model, // Assumes RendererModel is compatible with ComponentModel used in buildComponent
+  DevitySpec? specModel,
+  void Function(String? elementId)? onElementTap,
+  String? selectedElementId,
 ) {
   Widget builtRenderer;
-
   switch (model) {
     case ColumnRendererModel():
-      // Recursively build children
       final childrenWidgets = model.children
           .map(
             (child) => buildComponent(
               context,
               child,
               specModel,
-              navigationHandler,
+              onElementTap,
+              selectedElementId,
             ),
-          ) // Pass down
+          )
           .toList();
-      // TODO: Apply Column-specific attributes (mainAxisAlignment, crossAxisAlignment, etc.)
       builtRenderer = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: childrenWidgets,
       );
-// Added break
-    // Add case for RowRendererModel
+// Ensure breaks are present
     case RowRendererModel():
-      // Recursively build children
       final childrenWidgets = model.children
           .map(
             (child) => buildComponent(
               context,
               child,
               specModel,
-              navigationHandler,
+              onElementTap,
+              selectedElementId,
             ),
-          ) // Pass down
+          )
           .toList();
-      // TODO: Apply Row-specific attributes (mainAxisAlignment, crossAxisAlignment, etc.) from model.attributes
       builtRenderer = Row(
         children: childrenWidgets,
       );
-// Added break
-    // Add case for PaddingRendererModel
     case PaddingRendererModel():
-      // Padding model ensures it has exactly one child
       final childWidget = buildComponent(
         context,
-        model.child, // Use the single child
+        model.child,
         specModel,
-        navigationHandler,
+        onElementTap,
+        selectedElementId,
       );
-      // Apply padding using the parsed PaddingValue
-      // NOTE: Style padding is handled by _applyStyles below.
-      // The Padding specified by PaddingRendererModel takes precedence as it's more specific.
       builtRenderer = Padding(
         padding: model.padding.edgeInsets,
         child: childWidget,
       );
-      // We do NOT apply style padding here again, _applyStyles handles background etc.
-      // but the Padding widget itself doesn't take style.
       return _applyStyles(
-          builtRenderer, model.style); // Apply other styles like background
-    // Add case for ScrollableRendererModel
+        builtRenderer,
+        model.style,
+      ); // Padding already handles child, apply style to Padding itself
     case ScrollableRendererModel():
-      // Scrollable model ensures it has exactly one child
       final childWidget = buildComponent(
         context,
-        model.child, // Use the single child
+        model.child,
         specModel,
-        navigationHandler,
+        onElementTap,
+        selectedElementId,
       );
-      // Wrap the child in a SingleChildScrollView
       builtRenderer = SingleChildScrollView(
-        scrollDirection: model.scrollDirection, // Use direction from model
+        scrollDirection: model.scrollDirection,
         child: childWidget,
       );
-// Added break
-    // TODO: Add cases for Stack, etc.
     default:
       print('Error: Unknown RendererModel type: ${model.runtimeType}');
       builtRenderer = const SizedBox(
         child: Text(
           'Error: Unknown Renderer',
-          style: TextStyle(color: Colors.red),
+          style: TextStyle(
+            color: Colors.red,
+          ),
         ),
       );
-// Added break
   }
-
-  // Apply common styles (padding, background) to the built renderer
   return _applyStyles(builtRenderer, model.style);
 }
 
 /// Builds Flutter widgets specifically for Devity Widget models.
 Widget buildWidget(
   BuildContext context,
-  WidgetModel model,
-  SpecModel? specModel,
-  NavigationHandler? navigationHandler, // Add handler
+  WidgetModel model, // Assumes WidgetModel is compatible with ComponentModel
+  DevitySpec? specModel,
+  void Function(String? elementId)? onElementTap,
+  String? selectedElementId,
 ) {
-  // Instantiate ActionHandler here, passing the handler
-  final actionHandler = ActionHandler(navigationHandler: navigationHandler);
-
-  // Get current state from Bloc for potential bindings
-  // Use context.watch for reactivity
   final screenState = context.watch<DevityScreenBloc>().state.data;
-
-  Widget builtWidget;
+  Widget builtWidgetContent; // Content before selection wrapper
 
   switch (model) {
     case TextWidgetModel():
-      // Evaluate potential binding in text attribute
       final evaluatedText = ExpressionService.evaluate(model.text, screenState);
-
-      // Determine color: Style > Attribute > Default
       final textColor = model.style?.textColor ?? _parseColor(model.color);
-
-      // TODO: Implement more robust style/attribute mapping (evaluate these too?)
-      builtWidget = Text(
-        evaluatedText, // Use evaluated text
-        // Basic style mapping
+      builtWidgetContent = Text(
+        evaluatedText,
         style: TextStyle(
           fontSize: model.fontSize,
           fontWeight: _parseFontWeight(model.fontWeight),
-          color: textColor, // Use prioritized color
-          // TODO: Apply other styles from model.style map (fontFamily etc.)
+          color: textColor,
         ),
+        textAlign: _parseTextAlign(model.textAlign),
       );
-// Added break
     case ButtonWidgetModel():
-      // Evaluate potential binding in button text
       final evaluatedButtonText =
           ExpressionService.evaluate(model.text, screenState);
+      final actionService = ActionServiceProvider.of(context);
 
-      // Handle enabled state for onPressed
-      final onPressedCallback = model.enabled
+      var onPressedEffective = model.enabled && actionService != null
           ? () {
-              print(
-                "Button '${model.id}' pressed. Actions: ${model.onClickActionIds}",
-              );
-              actionHandler.executeActions(
-                context,
-                specModel, // Pass the spec model down
-                model.onClickActionIds,
-              );
+              if (onElementTap == null) {
+                // Only execute actions if not in editor selection mode for this button
+                print(
+                  "Button '${model.id}' pressed. Actions: ${model.onClickActionIds}",
+                );
+                if (model.onClickActionIds?.isNotEmpty == true) {
+                  actionService.executeActionsByIds(
+                    model.onClickActionIds!,
+                    context,
+                  );
+                }
+              } else {
+                // In editor mode, tap is handled by GestureDetector from _applySelectionHighlight
+                // or the one in buildComponent. If onElementTap is not null, we assume selection tap.
+                // However, if a button is selected, its own actions should ideally still be testable?
+                // This is a UX question. For now, primary tap selects in editor.
+                // To test action: could be a secondary tap, or a button in attribute editor.
+              }
             }
-          : null; // Set to null if button is not enabled
+          : null;
 
-      // TODO: Apply Button-specific styles (button color, text color, etc.) from style
-      builtWidget = ElevatedButton(
-        onPressed: onPressedCallback,
-        child: Text(evaluatedButtonText), // Use evaluated text
+      // If in editor selection mode, the outer GestureDetector handles selection tap.
+      // The button's own onPressed should be disabled or modified if onElementTap is present
+      // to prevent actions from firing when trying to select the button for editing.
+      // However, we still want the button to look enabled if model.enabled is true.
+      if (onElementTap != null) {
+        onPressedEffective =
+            null; // Disable button action when in selection mode for preview
+      }
+
+      builtWidgetContent = ElevatedButton(
+        onPressed: onPressedEffective,
+        child: Text(evaluatedButtonText),
+        // TODO: Apply button specific styles (color, shape) from model.style or direct properties
       );
-// Added break
     case TextFieldWidgetModel():
-      // TODO: Handle initial value binding?
-      // TODO: Apply style props (background, text color/style etc.)
-      builtWidget = Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: TextField(
-          decoration: InputDecoration(
-            labelText: model.label, // Use label
-            hintText: model.placeholder, // Use placeholder
-            border: const OutlineInputBorder(), // Basic border
-          ),
-          keyboardType:
-              _parseTextInputType(model.keyboardType), // Parse keyboard type
-          obscureText: model.obscureText,
-          onChanged: (newValue) {
-            print(
-              "TextField '${model.id}' changed: $newValue. Actions: ${model.onValueChangedActionIds}",
-            );
+      final evaluatedPlaceholder =
+          ExpressionService.evaluate(model.placeholder, screenState);
+      // TODO: Handle initial value binding and live value updates if needed for state.
+      builtWidgetContent = TextField(
+        decoration: InputDecoration(hintText: evaluatedPlaceholder),
+        keyboardType: _parseKeyboardType(model.keyboardType),
+        obscureText: model.obscureText,
+        onChanged: (newValue) {
+          print(
+            "TextField '${model.id}' changed: $newValue. Actions: ${model.onValueChangedActionIds}",
+          );
+          // Temporarily comment out or adapt this part as ActionHandler might expect old SpecModel
+          // For M3, onValueChangedActionIds is secondary to onClick and onLoad.
+          /*
+          if (model.onValueChangedActionIds?.isNotEmpty == true) {
+            final actionHandler = ActionHandler(navigationHandler: navigationHandler); // Old handler
             actionHandler.executeActions(
               context,
-              specModel,
-              model.onValueChangedActionIds,
-              eventPayload: {'value': newValue},
+              specModel, // This is DevitySpec?, ActionHandler might expect SpecModel?
+              model.onValueChangedActionIds!,
             );
-          },
-        ),
+          }
+          */
+        },
       );
-// Added break
-    // TODO: Add cases for 'Image'
+    case ImageWidgetModel():
+      // TODO: Placeholder, implement image loading (network, asset)
+      builtWidgetContent = model.url != null && model.url!.isNotEmpty
+          ? Image.network(model.url!,
+              fit: _parseBoxFit(model.fit),
+              errorBuilder: (ctx, err, st) =>
+                  const Icon(Icons.broken_image, color: Colors.grey, size: 48))
+          : const Icon(Icons.image_not_supported, color: Colors.grey, size: 48);
+      if (model.width != null || model.height != null) {
+        builtWidgetContent = SizedBox(
+          width: model.width,
+          height: model.height,
+          child: builtWidgetContent,
+        );
+      }
     default:
       print('Error: Unknown WidgetModel type: ${model.runtimeType}');
-      builtWidget = const SizedBox(
+      builtWidgetContent = const SizedBox(
         child: Text(
           'Error: Unknown Widget',
           style: TextStyle(color: Colors.red),
         ),
       );
-// Added break
   }
 
-  // Apply common styles (padding, background) to the built widget
-  return _applyStyles(builtWidget, model.style);
+  // Apply general styles from model.style AFTER specific widget styling
+  // The selection highlight is applied by the buildComponent wrapper if model.id exists.
+  return _applyStyles(builtWidgetContent, model.style);
 }
 
 /// Helper function to wrap a widget with common style properties (Padding, BackgroundColor).
@@ -321,54 +404,114 @@ Widget _applyStyles(Widget child, StyleModel? style) {
   return styledChild;
 }
 
+Widget _applySelectionHighlight(
+  Widget child,
+  String? elementId,
+  String? selectedElementId,
+  void Function(String? elementId)? onElementTap,
+) {
+  if (elementId == null || onElementTap == null) return child;
+
+  final isSelected = elementId == selectedElementId;
+  return GestureDetector(
+    onTap: () {
+      // print('Tapped on element: $elementId');
+      onElementTap(elementId);
+    },
+    behavior: HitTestBehavior.opaque, // Capture taps on the widget area itself
+    child: Container(
+      decoration: BoxDecoration(
+        border: isSelected ? Border.all(color: Colors.blue, width: 2) : null,
+        // borderRadius: isSelected ? BorderRadius.circular(4) : null,
+      ),
+      // Ensure minimum tap area for very small elements if necessary
+      // constraints: BoxConstraints(minWidth: 10, minHeight: 10),
+      child: child,
+    ),
+  );
+}
+
 // --- Helper Functions ---
 
 // Basic color parser (assumes hex format like "#RRGGBB" or "#AARRGGBB")
 // TODO: Enhance error handling and support for named colors
-Color? _parseColor(String? hexColor) {
-  if (hexColor == null || !hexColor.startsWith('#')) return null;
-  try {
-    final buffer = StringBuffer();
-    if (hexColor.length == 7) buffer.write('ff'); // Add alpha if missing
-    buffer.write(hexColor.substring(1));
-    return Color(int.parse(buffer.toString(), radix: 16));
-  } catch (e) {
-    print("Error parsing color: '$hexColor'. Error: $e");
-    return null; // Return null or a default color on error
+Color? _parseColor(String? colorString) {
+  if (colorString == null || colorString.isEmpty) return null;
+  if (colorString.startsWith('#')) {
+    try {
+      var hexColor = colorString.substring(1);
+      if (hexColor.length == 6) {
+        hexColor = 'FF$hexColor';
+      }
+      if (hexColor.length == 8) {
+        return Color(int.parse('0x$hexColor'));
+      }
+    } catch (e) {
+      print('Error parsing color: $colorString, $e');
+      return null;
+    }
   }
+  return null;
 }
 
 // Basic FontWeight parser
 // TODO: Enhance to support more weights or numerical values
-FontWeight? _parseFontWeight(String? weight) {
-  switch (weight?.toLowerCase()) {
+FontWeight? _parseFontWeight(String? fontWeightString) {
+  if (fontWeightString == null) return null;
+  switch (fontWeightString.toLowerCase()) {
     case 'bold':
       return FontWeight.bold;
     case 'normal':
       return FontWeight.normal;
-    // Add other common weights (e.g., 'light', 'w100'-'w900')
     default:
-      return null; // Default to normal or null
+      return null;
   }
 }
 
 /// Basic TextInputType parser
-TextInputType? _parseTextInputType(String? type) {
-  switch (type?.toLowerCase()) {
+TextInputType? _parseKeyboardType(String? keyboardType) {
+  if (keyboardType == null) return TextInputType.text; // Default
+  switch (keyboardType.toLowerCase()) {
     case 'text':
       return TextInputType.text;
     case 'number':
       return TextInputType.number;
-    case 'email':
-      return TextInputType.emailAddress;
     case 'phone':
       return TextInputType.phone;
+    case 'email':
+      return TextInputType.emailAddress;
     case 'url':
       return TextInputType.url;
-    // Add others as needed (datetime, multiline, etc.)
     default:
-      return null; // Default
+      return TextInputType.text;
   }
+}
+
+TextAlign? _parseTextAlign(String? textAlign) {
+  if (textAlign == null) return null;
+  switch (textAlign.toLowerCase()) {
+    case 'left':
+      return TextAlign.left;
+    case 'right':
+      return TextAlign.right;
+    case 'center':
+      return TextAlign.center;
+    case 'justify':
+      return TextAlign.justify;
+    case 'start':
+      return TextAlign.start;
+    case 'end':
+      return TextAlign.end;
+    default:
+      return null;
+  }
+}
+
+// Helper to parse BoxFit, assuming BoxFit enum string values
+BoxFit? _parseBoxFit(String? fit) {
+  if (fit == null) return null;
+  return BoxFit.values.firstWhere((e) => e.toString() == 'BoxFit.$fit',
+      orElse: () => BoxFit.contain);
 }
 
 // TODO: Add helper for Action execution binding

@@ -44,12 +44,40 @@ class StyleModel {
         return Color(int.parse(buffer.toString(), radix: 16));
       } else {
         print(
-            "Warning: Invalid color hex format '$hexColor'. Expected #RRGGBB or #AARRGGBB.");
+          "Warning: Invalid color hex format '$hexColor'. Expected #RRGGBB or #AARRGGBB.",
+        );
         return null;
       }
     } catch (e) {
       print("Error parsing color: '$hexColor'. Error: $e");
       return null;
     }
+  }
+
+  /// Serializes this StyleModel to a JSON map.
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{};
+    if (backgroundColor != null) {
+      json['backgroundColor'] = _colorToHex(backgroundColor!);
+    }
+    if (textColor != null) {
+      json['textColor'] = _colorToHex(textColor!);
+    }
+    if (padding != null) {
+      json['padding'] = padding!.toJson();
+    }
+    return json;
+  }
+
+  /// Helper function to convert Color objects to hex strings.
+  static String _colorToHex(Color color) {
+    // #AARRGGBB
+    // return '#${color.alpha.toRadixString(16).padLeft(2, '0')}${color.red.toRadixString(16).padLeft(2, '0')}${color.green.toRadixString(16).padLeft(2, '0')}${color.blue.toRadixString(16).padLeft(2, '0')}';
+    // Prefer #RRGGBB if alpha is FF
+    if (color.alpha == 255) {
+      return '#${color.red.toRadixString(16).padLeft(2, '0')}${color.green.toRadixString(16).padLeft(2, '0')}${color.blue.toRadixString(16).padLeft(2, '0')}';
+    }
+    // Include alpha if it's not FF
+    return '#${color.alpha.toRadixString(16).padLeft(2, '0')}${color.red.toRadixString(16).padLeft(2, '0')}${color.green.toRadixString(16).padLeft(2, '0')}${color.blue.toRadixString(16).padLeft(2, '0')}';
   }
 }

@@ -39,7 +39,8 @@ class PaddingValue {
     } else {
       // Invalid format, return zero padding
       print(
-          'Warning: Invalid padding format received: $json. Defaulting to zero.');
+        'Warning: Invalid padding format received: $json. Defaulting to zero.',
+      );
       return const PaddingValue();
     }
   }
@@ -50,4 +51,18 @@ class PaddingValue {
 
   /// Converts this PaddingValue to Flutter's EdgeInsets.
   EdgeInsets get edgeInsets => EdgeInsets.fromLTRB(left, top, right, bottom);
+
+  /// Serializes this PaddingValue to a JSON map.
+  Map<String, dynamic> toJson() {
+    // Check if all values are the same for a simpler "all" representation
+    if (top == bottom && top == left && top == right) {
+      return {'all': top};
+    }
+    return {
+      'top': top,
+      'bottom': bottom,
+      'left': left,
+      'right': right,
+    };
+  }
 }

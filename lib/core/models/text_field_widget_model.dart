@@ -1,3 +1,4 @@
+import 'package:devity_sdk/core/models/style_model.dart';
 import 'package:devity_sdk/core/models/widget_model.dart';
 
 /// Model representing a TextField widget.
@@ -13,8 +14,8 @@ class TextFieldWidgetModel extends WidgetModel {
     this.obscureText = false,
     super.style,
     super.onValueChangedActionIds,
-    Map<String, dynamic>? // Allow passing raw attributes if needed by parser
-        rawAttributes,
+    Map<String, dynamic>?
+        rawAttributes, // Keep for flexibility if DevityParser uses it
   }) : super(
           widgetType: 'TextField',
           attributes: {
@@ -30,9 +31,32 @@ class TextFieldWidgetModel extends WidgetModel {
           // TextField doesn't typically have onClick
           onClickActionIds: null,
         );
+
+  factory TextFieldWidgetModel.fromJson(Map<String, dynamic> json) {
+    final attributes = json['attributes'] as Map<String, dynamic>? ?? {};
+    final styleJson = json['style'] as Map<String, dynamic>?;
+    return TextFieldWidgetModel(
+      id: json['id'] as String,
+      initialValue: attributes['initialValue'] as String?,
+      label: attributes['label'] as String?,
+      placeholder: attributes['placeholder'] as String?,
+      keyboardType: attributes['keyboardType'] as String?,
+      obscureText: attributes['obscureText'] as bool? ?? false,
+      style: styleJson != null ? StyleModel.fromJson(styleJson) : null,
+      onValueChangedActionIds:
+          (json['onValueChangedActionIds'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList(),
+      // Pass all attributes from JSON to rawAttributes if constructor needs them for full map.
+      // Or, ensure the constructor logic for 'attributes' map is comprehensive.
+      rawAttributes:
+          attributes, // This ensures attributes map in super is complete
+    );
+  }
   final String? initialValue;
   final String? label;
   final String? placeholder;
   final String? keyboardType;
   final bool obscureText;
+  // toJson is handled by WidgetModel.toJson()
 }
