@@ -1,12 +1,7 @@
-import './component_model.dart';
+import 'package:devity_sdk/core/models/component_model.dart';
 
 /// Model for Rules.
 class RuleModel extends ComponentModel {
-  // TODO: Define properties for trigger, condition (expression), actionIds
-  final Map<String, dynamic> trigger; // Placeholder
-  final String conditionExpression; // Placeholder
-  final List<String> actionIds;
-
   RuleModel({
     required String id,
     required this.trigger,
@@ -26,5 +21,20 @@ class RuleModel extends ComponentModel {
       // Safely cast actionIds, default to empty list
       actionIds: (json['actionIds'] as List<dynamic>? ?? []).cast<String>(),
     );
+  }
+  // TODO: Define properties for trigger, condition (expression), actionIds
+  final Map<String, dynamic> trigger; // Placeholder
+  final String conditionExpression; // Placeholder
+  final List<String> actionIds;
+
+  @override
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'type': type,
+      'trigger': trigger,
+      'condition': conditionExpression, // Match the fromJson key 'condition'
+      'actionIds': actionIds,
+    };
   }
 }
